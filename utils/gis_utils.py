@@ -21,10 +21,11 @@ _MH = Polygon([
     (72.7, 18.5), (72.7, 19.5),
 ])
 
-# District CODES (from your locations.csv, 2-digit) that are UTM zone 44N and
-# stay ambiguous after the polygon test. Fill these in from your CSV:
-#   Chandrapur, Gadchiroli  (and Gondia / Bhandara / Yavatmal if needed)
-EAST_ZONE_DISTRICT_CODES = set()   # e.g. {"13", "14"}
+# District CODES (from locations.csv, 2-digit) that are UTM zone 44N (eastern
+# Vidarbha). Used as a tie-breaker when the polygon can't decide.
+# Confirmed: Wardha 08, Bhandara 10, Gondiya 11, Gadchiroli 12,
+#            Chandrapur 13, Yavatmal 14.  Nagpur assumed 09 (please confirm).
+EAST_ZONE_DISTRICT_CODES = {"08", "09", "10", "11", "12", "13", "14"}
 
 # Name fallback (lower-cased, prefix-stripped) in case code isn't passed.
 EAST_ZONE_DISTRICTS = {
