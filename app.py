@@ -46,7 +46,11 @@ if st.button("Locate Plot"):
     if not gut.strip():
         st.warning("Enter Gut Number")
         st.stop()
-    st.session_state.ctx = {"district": district, "gut": gut.strip()}
+    st.session_state.ctx = {
+        "district": district,
+        "district_code": sel["District_Code"],
+        "gut": gut.strip(),
+    }
     with st.spinner("Fetching plot from Bhunaksha…"):
         st.session_state.result = cached_plot_info(giscode, gut.strip())
 
@@ -64,8 +68,9 @@ if data is not None:
 
     else:
         dh = ctx.get("district")
-        rings = get_polygons_latlon(data["the_geom"], district=dh)
-        lat, lon = get_point_latlon(data["the_geom"], district=dh)
+        dc = ctx.get("district_code")
+        rings = get_polygons_latlon(data["the_geom"], district=dh, district_code=dc)
+        lat, lon = get_point_latlon(data["the_geom"], district=dh, district_code=dc)
 
         map_col, info_col = st.columns([2, 1])
 
