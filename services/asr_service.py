@@ -73,10 +73,18 @@ class _ASR:
                 self.form[r["name"]] = r.get("value", "")
 
     def get(self):
-        r = self.s.get(self.portal, params={"hDistName": self.district}, timeout=30)
-        self.soup = BeautifulSoup(r.text, "lxml")
-        self._refresh_form()
-        return r.status_code, len(r.text)
+        last_exc = None
+        for attempt in range(3):                     # gov portals are slow/flaky
+            try:
+                r = self.s.get(self.portal,
+                               params={"hDistName": self.district},
+                               timeout=(15, 60))
+                self.soup = BeautifulSoup(r.text, "lxml")
+                self._refresh_form()
+                return r.status_code, len(r.text)
+            except requests.exceptions.RequestException as e:
+                last_exc = e
+        raise last_exc
 
     def submit(self, extra=None, event_target=""):
         data = dict(self.form)
@@ -85,7 +93,7 @@ class _ASR:
         data["__EVENTTARGET"] = event_target
         data["__EVENTARGUMENT"] = ""
         r = self.s.post(self.portal, params={"hDistName": self.district},
-                        data=data, timeout=30)
+                        data=data, timeout=(15, 60))
         body = r.text
         if body[:1].isdigit() and "|" in body[:200] and "<" in body:
             body = body[body.find("<"):]
