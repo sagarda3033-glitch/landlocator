@@ -1,0 +1,28 @@
+import os, sys
+from playwright.sync_api import sync_playwright
+
+URL = os.environ.get("STREAMLIT_URL", "").strip()
+if not URL:
+    print("STREAMLIT_URL not set"); sys.exit(1)
+
+WAKE_TEXTS = ["Yes, get this app back up!", "get this app back up",
+              "app is waking up", "back up"]
+
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    page = browser.new_page()
+    print("Visiting", URL)
+    page.goto(URL, wait_until="domcontentloaded", timeout=60000)
+    page.wait_for_timeout(4000)
+    for txt in WAKE_TEXTS:
+        try:
+            btn = page.get_by_text(txt, exact=False)
+            if btn and btn.count() > 0:
+                print("Wake screen detected — clicking:", txt)
+                btn.first.click(timeout=5000)
+                break
+        except Exception:
+            pass
+    page.wait_for_timeout(20000)
+    print("Done. Title:", page.title())
+    browser.close()
