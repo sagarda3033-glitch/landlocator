@@ -5,3 +5,5 @@ streamlit-folium
 shapely
 pyproj
 requests
+beautifulsoup4
+lxml
