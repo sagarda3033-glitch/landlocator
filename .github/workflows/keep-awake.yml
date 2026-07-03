@@ -15,7 +15,7 @@ jobs:
       - name: Install Playwright
         run: |
           pip install playwright
-          python -m playwright install chromium
+          python -m playwright install --with-deps chromium
       - name: Visit app and wake if asleep
         env:
           STREAMLIT_URL: "https://landlocator-vrggemj8krcctwxxfwe9u8.streamlit.app/"
