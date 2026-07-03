@@ -11,7 +11,6 @@ import folium
 from streamlit_folium import st_folium
 
 from services.bhunaksha_service import get_plot_info
-from services.asr_service import get_rr_rate, resolve_district_en
 from utils.gis_utils import build_gis_code, get_point_latlon, get_polygons_latlon
 
 st.set_page_config(page_title="Maharashtra Land Locator", layout="wide")
@@ -22,14 +21,6 @@ st.title("🏞 Maharashtra Land Locator")
 def cached_plot_info(giscode, gut):
     """Cache results for a day so repeat lookups don't re-hit Bhunaksha."""
     return get_plot_info(giscode, gut)
-
-
-@st.cache_data(show_spinner=False, ttl=86400)
-def cached_rr_rate(district_csv, taluka, village, survey_no,
-                   village_value=None, taluka_value=None):
-    return get_rr_rate(resolve_district_en(district_csv), taluka, village,
-                       survey_no=survey_no, village_value=village_value,
-                       taluka_value=taluka_value)
 
 
 if "result" not in st.session_state:
@@ -96,87 +87,6 @@ if data is not None:
                     st.text(data["info"])
             with st.expander("Raw response"):
                 st.json(data)
-
-            st.markdown("---")
-            st.subheader("💰 Ready Reckoner Rate (ASR)")
-            with st.spinner("Fetching rate from IGR e-ASR…"):
-                asr = cached_rr_rate(ctx.get("district"), ctx.get("taluka"),
-                                     ctx.get("village"), ctx.get("gut"))
-
-            chosen_tv = None
-            # taluka name differs on e-ASR (e.g. renamed) -> let the user pick it
-            if asr.get("need_taluka"):
-                opts = asr["taluka_options"]
-                labels = [t for _, t in opts]
-                st.caption(f"Couldn't auto-match taluka '{ctx.get('taluka')}' on e-ASR — "
-                           "pick it:")
-                pick = st.selectbox("e-ASR taluka", labels, key="asr_tal")
-                chosen_tv = next(v for v, t in opts if t == pick)
-                with st.spinner("Fetching rate…"):
-                    asr = cached_rr_rate(ctx.get("district"), ctx.get("taluka"),
-                                         ctx.get("village"), ctx.get("gut"),
-                                         taluka_value=chosen_tv)
-
-            # village name differs on e-ASR -> let the user pick it
-            if asr.get("need_village"):
-                opts = asr["village_options"]
-                labels = [t for _, t in opts]
-                st.caption(f"Couldn't auto-match '{ctx.get('village')}' on e-ASR — "
-                           "pick the matching village:")
-                pick = st.selectbox("e-ASR village", labels, key="asr_vill")
-                chosen_val = next(v for v, t in opts if t == pick)
-                with st.spinner("Fetching rate…"):
-                    asr = cached_rr_rate(ctx.get("district"), ctx.get("taluka"),
-                                         ctx.get("village"), ctx.get("gut"),
-                                         village_value=chosen_val, taluka_value=chosen_tv)
-
-            if asr.get("ok") and asr.get("rates"):
-                try:
-                    area_sqm = float(str(data.get("formatedArea", "")).replace(",", ""))
-                except ValueError:
-                    area_sqm = None
-
-                def row_value(r):
-                    if not area_sqm:
-                        return None
-                    if "हेक्टर" in r["unit"]:
-                        return area_sqm / 10000.0 * r["rate"]
-                    if "मीटर" in r["unit"]:
-                        return area_sqm * r["rate"]
-                    return None
-
-                rows = []
-                for r in asr["rates"]:
-                    v = row_value(r)
-                    rows.append({"विभाग": r["code"], "वर्णन": r["desc"],
-                                 "दर (₹)": f"{r['rate']:,}", "एकक": r["unit"],
-                                 "मूल्य (₹)": f"{v:,.0f}" if v else "—"})
-                st.dataframe(pd.DataFrame(rows), hide_index=True,
-                             use_container_width=True)
-
-                # headline: the gut's applicable rate (first row that yields a value)
-                prim = next((r for r in asr["rates"] if row_value(r) is not None), None)
-                if prim and area_sqm:
-                    v = row_value(prim)
-                    per = (f"{prim['rate']:,}/sq.m × {area_sqm:,.0f} sq.m"
-                           if "मीटर" in prim["unit"]
-                           else f"{prim['rate']:,}/hectare × {area_sqm/10000:.4f} ha")
-                    st.metric("Indicative land value", f"₹ {v:,.0f}",
-                              help=f"विभाग {prim['code']} — {per}")
-                st.caption(
-                    ("Gut-specific rate" if asr.get("mode") == "survey"
-                     else "Village/zone rate (no gut-specific entry)")
-                    + " — Source: IGR Maharashtra e-ASR. Indicative estimate (rate × area).")
-            else:
-                st.info(f"ASR rate not found for gut {ctx.get('gut')}.")
-                with st.expander("ASR debug"):
-                    st.write({
-                        "sent_district_en": resolve_district_en(ctx.get("district")),
-                        "sent_taluka": ctx.get("taluka"),
-                        "sent_village": ctx.get("village"),
-                        "sent_gut": ctx.get("gut"),
-                    })
-                    st.json(asr.get("diagnostics", {}))
 
         with map_col:
             m = folium.Map(location=[lat, lon], zoom_start=18, tiles=None)
